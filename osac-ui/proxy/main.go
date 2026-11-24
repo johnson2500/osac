@@ -2,9 +2,12 @@ package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/andybalholm/brotli"
@@ -16,6 +19,7 @@ import (
 	"github.com/osac/proxy/auth"
 	"github.com/osac/proxy/bridge"
 	"github.com/osac/proxy/config"
+	"github.com/osac/proxy/grid"
 	proxylog "github.com/osac/proxy/log"
 	proxymiddleware "github.com/osac/proxy/middleware"
 	"github.com/osac/proxy/server"
@@ -150,6 +154,35 @@ func main() {
 		log.Info("Connect JSON proxy enabled")
 	}
 
+	// Per-grid single-login routes — only available when GRIDS_CONFIG_FILE is
+	// configured with at least one AI Grid hub.
+	if config.GridsConfigFile != "" {
+		grids, err := grid.LoadConfig(config.GridsConfigFile)
+		if err != nil {
+			log.WithError(err).Fatal("Failed to load grids config")
+		}
+		if len(grids) > 0 {
+			gridTLSConfig, err := newGridTLSConfig()
+			if err != nil {
+				log.WithError(err).Fatal("Failed to get grids TLS configuration")
+			}
+			gridHandler := &grid.Handler{
+				Grids:          grids,
+				BaseUIURL:      config.BaseUIURL,
+				HTTPClient:     newHTTPClient(gridTLSConfig),
+				ProxyTransport: newHTTPClient(gridTLSConfig).Transport,
+			}
+			router.Route("/api/grids", func(r chi.Router) {
+				r.Get("/{gridID}/login", gridHandler.Login)
+				r.Get("/{gridID}/callback", gridHandler.Callback)
+				r.Handle("/{gridID}/*", http.HandlerFunc(gridHandler.Proxy))
+			})
+			log.Infof("Grid single-login routes enabled for %d grid(s)", len(grids))
+		} else {
+			log.Warn("GRIDS_CONFIG_FILE contained no grids — grid routes disabled")
+		}
+	}
+
 	log.Info("Serving SPA static files from /app/public")
 	spa := server.SpaHandler{Dir: "/app/public"}
 	router.NotFound(spa.ServeHTTP)
@@ -174,4 +207,24 @@ func newHTTPClient(tlsConfig *tls.Config) *http.Client {
 		},
 		Timeout: 15 * time.Second,
 	}
+}
+
+// newGridTLSConfig builds the TLS configuration for AI Grid hub endpoints
+// from GRIDS_TLS_CA_FILE / GRIDS_TLS_INSECURE.
+func newGridTLSConfig() (*tls.Config, error) {
+	if config.GridsTlsInsecure {
+		return &tls.Config{InsecureSkipVerify: true}, nil //nolint:gosec // opt-in dev only
+	}
+	if config.GridsTlsCaFile == "" {
+		return nil, nil
+	}
+	pem, err := os.ReadFile(config.GridsTlsCaFile)
+	if err != nil {
+		return nil, fmt.Errorf("read GRIDS_TLS_CA_FILE: %w", err)
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(pem) {
+		return nil, fmt.Errorf("no certificates found in GRIDS_TLS_CA_FILE")
+	}
+	return &tls.Config{RootCAs: pool}, nil
 }

@@ -77,6 +77,48 @@ certificates, set `OIDC_TLS_CA_FILE` and `FULFILLMENT_TLS_CA_FILE` to the
 appropriate CA bundle paths, or use the development-only
 `OIDC_TLS_INSECURE=1` and `FULFILLMENT_TLS_INSECURE=1` flags.
 
+### AI Grid single-login (per-grid hub tokens)
+
+The proxy can exchange the browser's OSAC session for a per-hub OAuth token
+on AI Grid hubs whose OpenShift OAuth federates to the same Keycloak realm.
+It is disabled unless `GRIDS_CONFIG_FILE` points to a grids configuration
+file (JSON, mounted as a Secret when it contains a client secret):
+
+```json
+{
+  "grids": [
+    {
+      "id": "grid1",
+      "hubURL": "https://ai-grid-provider-console.apps.grid1.example.com",
+      "oauthURL": "https://oauth-openshift.apps.grid1.example.com",
+      "clientID": "ai-grid-proxy",
+      "clientSecret": "…",
+      "idp": "osac"
+    }
+  ]
+}
+```
+
+Routes exposed per grid:
+
+- `GET /api/grids/<id>/login` — starts the hub OAuth authorize-code + PKCE
+  flow. With the browser holding OSAC Keycloak SSO cookies (the normal case
+  after OSAC login), the flow completes silently.
+- `GET /api/grids/<id>/callback` — exchanges the code, caches the
+  `(user, grid)` hub token (TTL capped at 8 h; hub tokens cannot be
+  refreshed), and returns to the `redirect` target.
+- `/api/grids/<id>/*` — forwarded to the grid hub's console BFF with the
+  hub token as `Authorization: Bearer`. The path after the grid prefix is
+  forwarded verbatim.
+
+Contract for API callers: when no token is cached (or the hub rejected one),
+fetch/XHR requests receive `401` with an `X-Grid-Login-URL` header pointing
+at the silent login route — the SPA should navigate the browser there.
+Top-level browser navigations are redirected automatically. Upstream `403`
+responses pass through unchanged: a grid the user cannot access is reported,
+not broken. For hub endpoints with self-signed certificates, set
+`GRIDS_TLS_CA_FILE`, or use the development-only `GRIDS_TLS_INSECURE=1`.
+
 ## Documentation
 
 | Document | Description |

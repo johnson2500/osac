@@ -34,6 +34,15 @@ var (
 	// BaseUIURL is the public base URL of the UI used to compute the /callback redirect URI.
 	// If empty, the proxy derives it from the SPA's redirect_base query parameter.
 	BaseUIURL = getEnvUrlVar("BASE_UI_URL", "")
+	// GridsConfigFile is the path to the AI Grid hubs configuration (JSON).
+	// When empty, the per-grid single-login routes are disabled.
+	GridsConfigFile = getEnvVar("GRIDS_CONFIG_FILE", "")
+	// GridsTlsCaFile is a CA bundle file for AI Grid hub endpoints (OAuth
+	// token exchange and per-grid forwarding).
+	GridsTlsCaFile = getEnvVar("GRIDS_TLS_CA_FILE", "")
+	// GridsTlsInsecure disables TLS certificate verification for AI Grid hub
+	// endpoints. For development only.
+	GridsTlsInsecure = getEnvVar("GRIDS_TLS_INSECURE", "") == "1"
 )
 
 // FulfillmentGrpcTarget returns the bare host:port for the gRPC upstream,
