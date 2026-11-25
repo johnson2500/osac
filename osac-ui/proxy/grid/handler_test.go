@@ -368,3 +368,28 @@ func TestProxy_UnknownGrid404(t *testing.T) {
 		t.Fatalf("expected 404, got %d", rec.Code)
 	}
 }
+
+func TestProxy_ConsoleRootForwards(t *testing.T) {
+	env := newTestEnv(t)
+
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+	env.handler.Grids["grid1"] = Grid{
+		ID: "grid1", HubURL: srv.URL, OAuthURL: env.tokenSrv.URL, ClientID: "c",
+	}
+	env.cache.Set("provider-admin", "grid1", "sha256~hubtoken", time.Hour)
+
+	// "Open console" in the SPA opens /api/grids/<id>/ — a wildcard tail
+	// that is empty after the prefix strip.
+	rec := env.do(t, http.MethodGet, "/api/grids/grid1/", sessionCookie("provider-admin"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for console root, got %d", rec.Code)
+	}
+	if gotPath != "/" {
+		t.Errorf("expected forwarded path /, got %q", gotPath)
+	}
+}

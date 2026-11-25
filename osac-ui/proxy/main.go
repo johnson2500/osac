@@ -166,11 +166,16 @@ func main() {
 			if err != nil {
 				log.WithError(err).Fatal("Failed to get grids TLS configuration")
 			}
+			gridClient := newHTTPClient(gridTLSConfig)
+			// The client's 15 s Timeout applies only to token exchange;
+			// forwarded console requests use the bare Transport on purpose
+			// (a console session must not die mid-stream).
 			gridHandler := &grid.Handler{
 				Grids:          grids,
 				BaseUIURL:      config.BaseUIURL,
-				HTTPClient:     newHTTPClient(gridTLSConfig),
-				ProxyTransport: newHTTPClient(gridTLSConfig).Transport,
+				HTTPClient:     gridClient,
+				ProxyTransport: gridClient.Transport,
+				Cache:          grid.NewTokenCache(),
 			}
 			router.Route("/api/grids", func(r chi.Router) {
 				r.Get("/", gridHandler.List)

@@ -1,3 +1,7 @@
+// The grids API is plain REST served by the OSAC UI proxy (/api/grids), not
+// the Connect layer, so there is no mock transport to stub: mocking global
+// fetch is the accepted approach here (AGENTS.md's "don't mock fetch" rule
+// targets Connect clients).
 import { screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 

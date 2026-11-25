@@ -13,6 +13,7 @@ interface GridStatusLabelProps {
 const STATUS_KIND: Record<GridAccessStatus, StatusKind> = {
   connected: 'ready',
   'sign-in-required': 'progressing',
+  'session-expired': 'progressing',
   'no-access': 'failed',
   unreachable: 'unspecified',
 };
@@ -23,6 +24,7 @@ const GridStatusLabel = ({ status }: GridStatusLabelProps) => {
   const text = {
     connected: t('Connected'),
     'sign-in-required': t('Sign-in required'),
+    'session-expired': t('Session expired'),
     'no-access': t('No access'),
     unreachable: t('Unreachable'),
   }[status];

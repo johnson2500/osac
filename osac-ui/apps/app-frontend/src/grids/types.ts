@@ -19,11 +19,18 @@ export interface GridsResponse {
  * - connected: the proxy holds a valid hub token for this user
  * - sign-in-required: 401 with X-Grid-Login-URL — the browser must go through
  *   the silent login once before grid calls work
+ * - session-expired: 401 without X-Grid-Login-URL — the OSAC session itself
+ *   is gone; the app needs its regular OSAC login again
  * - no-access: the hub recognizes the user but refuses them (403); reported,
  *   not hidden
  * - unreachable: anything else (network error, 5xx)
  */
-export type GridAccessStatus = 'connected' | 'sign-in-required' | 'no-access' | 'unreachable';
+export type GridAccessStatus =
+  | 'connected'
+  | 'sign-in-required'
+  | 'session-expired'
+  | 'no-access'
+  | 'unreachable';
 
 export interface GridAccess {
   id: string;

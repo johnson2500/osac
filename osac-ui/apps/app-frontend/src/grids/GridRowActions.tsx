@@ -42,8 +42,17 @@ const GridRowActions = ({ grid }: GridRowActionsProps) => {
     );
   }
 
-  // no-access is reported, not acted on; unreachable has nothing to retry to.
-  return null;
+  if (grid.status === 'session-expired') {
+    // The OSAC session is gone: reloading the app restarts its regular
+    // OSAC login flow, which lands back on this page.
+    return (
+      <Button variant="secondary" onClick={() => window.location.reload()}>
+        {t('Sign in')}
+      </Button>
+    );
+  }
+
+  // no-access is reported, not acted on; unreachable has nothing to retry to.  return null;
 };
 
 export default GridRowActions;

@@ -53,7 +53,8 @@ type gridFlowCookie struct {
 type Handler struct {
 	// Grids is the registry of known AI Grid hubs, keyed by grid ID.
 	Grids map[string]Grid
-	// Cache holds per-(user, grid) hub tokens.
+	// Cache holds per-(user, grid) hub tokens. Required: construct the
+	// Handler with NewTokenCache() (main.go does); a nil Cache panics.
 	Cache *TokenCache
 	// BaseUIURL is the public base URL of the UI; used to compute the OAuth
 	// callback URI. If empty, the request origin is used.
@@ -179,7 +180,7 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	if ttl > maxCacheTTL {
 		ttl = maxCacheTTL
 	}
-	h.cache().Set(flow.Username, gridID, tr.AccessToken, ttl)
+	h.Cache.Set(flow.Username, gridID, tr.AccessToken, ttl)
 
 	http.Redirect(w, r, flow.Redirect, http.StatusFound)
 }
@@ -233,7 +234,7 @@ func (h *Handler) Proxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, ok := h.cache().Get(username, gridID)
+	token, ok := h.Cache.Get(username, gridID)
 	if !ok {
 		h.writeGridUnauthorized(w, r, gridID)
 		return
@@ -256,7 +257,7 @@ func (h *Handler) Proxy(w http.ResponseWriter, r *http.Request) {
 		if resp.StatusCode == http.StatusUnauthorized {
 			// Token rejected upstream: drop it so the next request goes
 			// through the silent login flow again.
-			h.cache().Invalidate(username, gridID)
+			h.Cache.Invalidate(username, gridID)
 			if isBrowserNavigation(r) {
 				// Rewrite the response into a redirect to the silent login
 				// so top-level navigations recover seamlessly.
@@ -288,7 +289,12 @@ func (h *Handler) Proxy(w http.ResponseWriter, r *http.Request) {
 		// including the /perses/api/api/... double-api quirk).
 		prefix := "/api/grids/" + gridID
 		req.URL.Path = singleLeadingSlash(strings.TrimPrefix(req.URL.Path, prefix))
-		req.URL.RawPath = singleLeadingSlash(strings.TrimPrefix(req.URL.RawPath, prefix))
+		// Only adjust RawPath when the request carried one (escaped form);
+		// inventing one that doesn't encode Path would be ignored by the
+		// http stack anyway.
+		if req.URL.RawPath != "" {
+			req.URL.RawPath = singleLeadingSlash(strings.TrimPrefix(req.URL.RawPath, prefix))
+		}
 		req.Host = hubURL.Host
 		req.Header.Del("Authorization")
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -374,15 +380,6 @@ func (h *Handler) callbackURI(r *http.Request, gridID string) string {
 		base = scheme + "://" + r.Host
 	}
 	return strings.TrimSuffix(base, "/") + "/api/grids/" + gridID + "/callback"
-}
-
-// cache returns the handler's token cache, lazily creating one so a zero
-// value Handler with only Grids set still works.
-func (h *Handler) cache() *TokenCache {
-	if h.Cache == nil {
-		h.Cache = NewTokenCache()
-	}
-	return h.Cache
 }
 
 // writeGridUnauthorized responds to a token-less request. Browser navigations

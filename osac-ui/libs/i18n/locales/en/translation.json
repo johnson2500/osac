@@ -1038,6 +1038,7 @@
   "Service CIDR must not overlap the pod CIDR.": "Service CIDR must not overlap the pod CIDR.",
   "Service unavailable": "Service unavailable",
   "Services": "Services",
+  "Session expired": "Session expired",
   "Set": "Set",
   "Shared": "Shared",
   "Show less": "Show less",

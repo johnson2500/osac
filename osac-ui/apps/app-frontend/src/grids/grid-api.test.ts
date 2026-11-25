@@ -1,3 +1,7 @@
+// The grids API is plain REST served by the OSAC UI proxy (/api/grids), not
+// the Connect layer, so there is no mock transport to stub: mocking global
+// fetch is the accepted approach here (AGENTS.md's "don't mock fetch" rule
+// targets Connect clients).
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fetchGrids, probeGrid } from './grid-api';
@@ -62,6 +66,15 @@ describe('probeGrid', () => {
       id: 'sno-01',
       status: 'sign-in-required',
       loginUrl: '/api/grids/sno-01/login',
+    });
+  });
+
+  it('reports session-expired on a bare 401 (no X-Grid-Login-URL)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(401, {})));
+
+    await expect(probeGrid('sno-01')).resolves.toEqual({
+      id: 'sno-01',
+      status: 'session-expired',
     });
   });
 

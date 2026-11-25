@@ -37,11 +37,13 @@ export const fetchGrids = async (): Promise<GridsResponse> => {
 export const probeGrid = async (id: string): Promise<GridAccess> => {
   const response = await fetchOk(`/api/grids/${id}/api/v1/user`);
   if (response.status === 401) {
-    return {
-      id,
-      status: 'sign-in-required',
-      loginUrl: response.headers.get(GRID_LOGIN_HEADER) ?? undefined,
-    };
+    const loginUrl = response.headers.get(GRID_LOGIN_HEADER);
+    if (!loginUrl) {
+      // A bare 401 means the OSAC session itself is gone, not just the
+      // grid token — the app's regular OSAC login is needed.
+      return { id, status: 'session-expired' };
+    }
+    return { id, status: 'sign-in-required', loginUrl };
   }
   if (response.status === 403) {
     return { id, status: 'no-access' };
