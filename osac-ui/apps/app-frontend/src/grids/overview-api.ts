@@ -1,8 +1,3 @@
-// The grids monitoring API is plain REST served by the OSAC UI proxy (the
-// grid hubs' Perses through the console BFF relay), not the Connect layer,
-// so there is no mock transport to stub: mocking global fetch is the accepted
-// approach here (AGENTS.md's "don't mock fetch" rule targets Connect
-// clients).
 import { responseStatus } from './grid-api';
 import {
   type GridStatQuery,
@@ -15,6 +10,29 @@ interface PersesDatasource {
   metadata: { name: string };
   spec: { kind: string };
 }
+
+/**
+ * One GET through the OSAC UI proxy's grid routes, mapped to the access
+ * status an auth failure implies: the Response on success (2xx, body
+ * unread), or the status string the caller should degrade to. Shared by the
+ * datasource discovery and the stat queries.
+ */
+const fetchGridResource = async (url: string): Promise<Response | GridAccessStatus> => {
+  let response: Response;
+  try {
+    response = await fetch(url, { headers: { Accept: 'application/json' } });
+  } catch {
+    return 'unreachable';
+  }
+  const authStatus = responseStatus(response);
+  if (authStatus) {
+    return authStatus;
+  }
+  if (!response.ok) {
+    return 'unreachable';
+  }
+  return response;
+};
 
 export interface DatasourceResult {
   status: GridAccessStatus;
@@ -29,23 +47,12 @@ export interface DatasourceResult {
  * Auth failures map to the same statuses the access probe reports.
  */
 export const fetchOverviewDatasource = async (gridId: string): Promise<DatasourceResult> => {
-  let response: Response;
-  try {
-    response = await fetch(
-      `/api/grids/${gridId}/perses/api/api/v1/projects/${MONITORING_PROJECT}/datasources`,
-      { headers: { Accept: 'application/json' } },
-    );
-  } catch {
-    return { status: 'unreachable' };
+  const url = `/api/grids/${gridId}/perses/api/api/v1/projects/${MONITORING_PROJECT}/datasources`;
+  const result = await fetchGridResource(url);
+  if (typeof result === 'string') {
+    return { status: result };
   }
-  const authStatus = responseStatus(response);
-  if (authStatus) {
-    return { status: authStatus };
-  }
-  if (!response.ok) {
-    return { status: 'unreachable' };
-  }
-  const datasources = (await response.json()) as PersesDatasource[];
+  const datasources = (await result.json()) as PersesDatasource[];
   const name = datasources.find((d) => d.spec.kind === OVERVIEW_DATASOURCE_KIND)?.metadata.name;
   return name ? { status: 'connected', name } : { status: 'unreachable' };
 };
@@ -71,20 +78,11 @@ export const queryGridStat = async (
   const url =
     `/api/grids/${gridId}/perses/api/api/v1/proxy/projects/${MONITORING_PROJECT}` +
     `/datasources/${datasourceName}/api/v1/query?query=${encodeURIComponent(stat.query)}`;
-  let response: Response;
-  try {
-    response = await fetch(url, { headers: { Accept: 'application/json' } });
-  } catch {
-    return { grid: gridId, status: 'unreachable' };
+  const result = await fetchGridResource(url);
+  if (typeof result === 'string') {
+    return { grid: gridId, status: result };
   }
-  const authStatus = responseStatus(response);
-  if (authStatus) {
-    return { grid: gridId, status: authStatus };
-  }
-  if (!response.ok) {
-    return { grid: gridId, status: 'unreachable' };
-  }
-  const body = (await response.json()) as {
+  const body = (await result.json()) as {
     data?: { result?: { value?: [number, string] }[] };
   };
   const value = (body.data?.result ?? []).reduce(

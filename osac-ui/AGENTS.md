@@ -200,6 +200,10 @@ export const getLabels = (t: TFunction) => ({
 **Mocking API calls in tests**:
 - Use `createMockConnectTransport` from `libs/ui-components/src/test-utils/createMockConnectTransport.ts` — in-memory Connect router transport for protobuf services
 - Pass the mock transport to `ApiProvider`; do not mock fetch or REST endpoints (the REST layer was removed)
+- Exception — the grids API (`/api/grids/...`) is plain REST served by the OSAC UI proxy,
+  not a Connect service, so its tests stub global fetch instead. Use the shared helpers in
+  `apps/app-frontend/src/test-utils/gridsFetch.ts` (`jsonResponse`, `stubFetch`), which also
+  carry the rationale for this exception
 
 **Test guidelines**:
 - Assert what the user sees and does — prefer accessible queries (labels, roles, names)

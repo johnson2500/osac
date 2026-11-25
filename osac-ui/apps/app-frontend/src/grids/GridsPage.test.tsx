@@ -1,19 +1,12 @@
-// The grids API is plain REST served by the OSAC UI proxy (/api/grids), not
-// the Connect layer, so there is no mock transport to stub: mocking global
-// fetch is the accepted approach here (AGENTS.md's "don't mock fetch" rule
-// targets Connect clients).
+// The grids API is plain REST served by the OSAC UI proxy (/api/grids): fetch
+// is stubbed, not a Connect mock transport (see test-utils/gridsFetch.ts).
 import { screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { renderWithProviders } from '@osac/ui-components/test-utils/TestProviders';
 
 import GridsPage from './GridsPage';
-
-const jsonResponse = (status: number, body: unknown, headers: Record<string, string> = {}) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...headers },
-  });
+import { jsonResponse } from '../test-utils/gridsFetch';
 
 afterEach(() => {
   vi.unstubAllGlobals();

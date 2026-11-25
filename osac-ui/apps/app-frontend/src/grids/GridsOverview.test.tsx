@@ -1,7 +1,5 @@
-// The grids monitoring API is plain REST served by the OSAC UI proxy, not
-// the Connect layer, so there is no mock transport to stub: mocking global
-// fetch is the accepted approach here (AGENTS.md's "don't mock fetch" rule
-// targets Connect clients).
+// The grids monitoring API is plain REST served by the OSAC UI proxy: fetch is
+// stubbed, not a Connect mock transport (see test-utils/gridsFetch.ts).
 import { screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -9,24 +7,7 @@ import { renderWithProviders } from '@osac/ui-components/test-utils/TestProvider
 
 import GridsOverview from './GridsOverview';
 import type { GridAccess } from './types';
-
-const jsonResponse = (status: number, body: unknown, headers: Record<string, string> = {}) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...headers },
-  });
-
-/** /api/grids first, then one probe per grid in list order. */
-const stubFetch = (handler: (url: URL) => Response) => {
-  vi.stubGlobal(
-    'fetch',
-    vi
-      .fn()
-      .mockImplementation((url: string | URL) =>
-        Promise.resolve(handler(new URL(url, 'https://ui.example.com'))),
-      ),
-  );
-};
+import { jsonResponse, stubFetch } from '../test-utils/gridsFetch';
 
 const grids = (statuses: Record<string, GridAccess['status']>): GridAccess[] =>
   Object.entries(statuses).map(([id, status]) => ({ id, status }));
@@ -77,6 +58,9 @@ describe('GridsOverview', () => {
     });
 
     expect(await screen.findByText('grid-a')).toBeInTheDocument();
+    // The degradation is surfaced, not just an em dash: the row reports the
+    // status its queries settled on.
+    expect(screen.getByText('No access')).toBeInTheDocument();
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(4);
   });
 

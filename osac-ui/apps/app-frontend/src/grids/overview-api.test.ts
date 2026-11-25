@@ -1,17 +1,10 @@
-// The grids monitoring API is plain REST served by the OSAC UI proxy, not
-// the Connect layer, so there is no mock transport to stub: mocking global
-// fetch is the accepted approach here (AGENTS.md's "don't mock fetch" rule
-// targets Connect clients).
+// The grids monitoring API is plain REST served by the OSAC UI proxy: fetch is
+// stubbed, not a Connect mock transport (see test-utils/gridsFetch.ts).
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fetchOverviewDatasource, queryGridStat } from './overview-api';
 import { GRID_STAT_QUERIES } from './overview-queries';
-
-const jsonResponse = (status: number, body: unknown, headers: Record<string, string> = {}) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...headers },
-  });
+import { jsonResponse } from '../test-utils/gridsFetch';
 
 const datasourceList = (kind = 'LokiDatasource') => [
   { metadata: { name: 'other' }, spec: { kind: 'PrometheusDatasource' } },

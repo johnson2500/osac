@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { fetchOverviewDatasource, queryGridStat } from './overview-api';
 import { GRID_STAT_QUERIES } from './overview-queries';
@@ -19,25 +19,27 @@ export interface UseGridsOverviewResult {
  * The cross-grid overview (Phase 4 v1): the same stat queries fanned out to
  * every connected grid hub, merged client-side — one row per grid, one cell
  * per stat. Fan-out + merge only; there is no central aggregation, and a
- * grid that cannot be queried degrades to its own status in every cell
- * rather than failing the overview.
+ * grid that cannot be queried degrades to its own status rather than
+ * failing the overview.
  */
 export const useGridsOverview = (grids: GridAccess[]): UseGridsOverviewResult => {
   const [rows, setRows] = useState<GridsOverviewRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const connectedIds = grids
-    .filter((grid) => grid.status === 'connected')
-    .map((grid) => grid.id)
-    .sort()
-    .join(',');
+  const connectedIds = useMemo(
+    () =>
+      grids
+        .filter((grid) => grid.status === 'connected')
+        .map((grid) => grid.id)
+        .sort(),
+    [grids],
+  );
 
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
-      const ids = connectedIds ? connectedIds.split(',') : [];
-      if (ids.length === 0) {
+      if (connectedIds.length === 0) {
         if (!cancelled) {
           setRows([]);
         }
@@ -46,7 +48,7 @@ export const useGridsOverview = (grids: GridAccess[]): UseGridsOverviewResult =>
       setIsLoading(true);
       try {
         const nextRows = await Promise.all(
-          ids.map(async (gridId): Promise<GridsOverviewRow> => {
+          connectedIds.map(async (gridId): Promise<GridsOverviewRow> => {
             const stats: GridsOverviewRow['stats'] = {};
             const datasource = await fetchOverviewDatasource(gridId);
             await Promise.all(
