@@ -6,6 +6,7 @@ import { SubtleContent } from '@osac/ui-components/components/SubtleContent/Subt
 import { useTranslation } from '@osac/ui-components/hooks/useTranslation';
 
 import GridRowActions from './GridRowActions';
+import GridsOverview from './GridsOverview';
 import GridStatusLabel from './GridStatusLabel';
 import { useGrids } from './useGrids';
 
@@ -55,6 +56,7 @@ const GridsPage = () => {
             </Tbody>
           </Table>
         )}
+        <GridsOverview grids={grids} />
       </ListPageBody>
     </ListPage>
   );

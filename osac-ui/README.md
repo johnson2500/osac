@@ -116,6 +116,12 @@ Routes exposed per grid:
   connected, sign-in required (a "Sign in" action goes to the silent login
   and returns to the page), no access (reported, not hidden), or
   unreachable.
+- Cross-grid overview (v1: fan-out + client-side merge, no central
+  aggregation) — the AI Grids page runs the same monitoring stat queries on
+  every connected grid through `/api/grids/<id>/perses/api/…` (the grid
+  hub's Perses, via the console BFF relay) and merges the answers into one
+  table with a totals row for the additive stats. The queries live in
+  `apps/app-frontend/src/grids/overview-queries.ts`.
 
 Contract for API callers: when no token is cached (or the hub rejected one),
 fetch/XHR requests receive `401` with an `X-Grid-Login-URL` header pointing

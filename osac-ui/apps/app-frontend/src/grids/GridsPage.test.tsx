@@ -30,6 +30,16 @@ const stubGridFetch = (...responses: Response[]) => {
           grids: responses.map((_r, i) => ({ id: `grid-${i}` })),
         });
       }
+      // Cross-grid overview reads (connected grids only): the datasource
+      // listing and the stat queries through the Perses relay.
+      if (target.includes('/perses/')) {
+        if (target.endsWith('/datasources')) {
+          return jsonResponse(200, [
+            { metadata: { name: 'loki' }, spec: { kind: 'LokiDatasource' } },
+          ]);
+        }
+        return jsonResponse(200, { data: { result: [{ value: [0, '42'] }] } });
+      }
       const id = target.split('/')[3];
       const index = Number(id.split('-')[1]);
       return responses[index];
@@ -48,7 +58,10 @@ describe('GridsPage', () => {
     renderWithProviders(<GridsPage />, { routerEntries: ['/grids'] });
 
     expect(await screen.findByRole('heading', { name: 'AI Grids' })).toBeInTheDocument();
-    expect(await screen.findByText('grid-0')).toBeInTheDocument();
+    // The overview merges the connected grid's stats (async fan-out): 42 in
+    // the grid's row and in the additive stat's Total row.
+    expect(await screen.findAllByText('42')).toHaveLength(2);
+    expect(screen.getAllByText('grid-0')).toHaveLength(2); // table + overview
     expect(screen.getByText('Connected')).toBeInTheDocument();
     expect(screen.getByText('provider-admin')).toBeInTheDocument();
 

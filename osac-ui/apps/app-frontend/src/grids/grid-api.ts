@@ -1,8 +1,8 @@
-import type { GridAccess, GridsResponse } from './types';
+import type { GridAccess, GridAccessStatus, GridsResponse } from './types';
 
 const GRID_LOGIN_HEADER = 'X-Grid-Login-URL';
 
-class GridApiError extends Error {
+export class GridApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
@@ -10,6 +10,23 @@ class GridApiError extends Error {
     super(message);
   }
 }
+
+/**
+ * Maps a grid-route response to the access status it implies, or undefined
+ * when the response is not an auth decision (2xx, or a network/5xx failure).
+ * Shared by the access probe and the cross-grid overview queries.
+ */
+export const responseStatus = (response: Response): GridAccessStatus | undefined => {
+  if (response.status === 401) {
+    // A bare 401 means the OSAC session itself is gone, not just the grid
+    // token — the app's regular OSAC login is needed.
+    return response.headers.get(GRID_LOGIN_HEADER) ? 'sign-in-required' : 'session-expired';
+  }
+  if (response.status === 403) {
+    return 'no-access';
+  }
+  return undefined;
+};
 
 const fetchOk = async (url: string): Promise<Response> => {
   const response = await fetch(url, { headers: { Accept: 'application/json' } });
@@ -36,17 +53,16 @@ export const fetchGrids = async (): Promise<GridsResponse> => {
  */
 export const probeGrid = async (id: string): Promise<GridAccess> => {
   const response = await fetchOk(`/api/grids/${id}/api/v1/user`);
-  if (response.status === 401) {
-    const loginUrl = response.headers.get(GRID_LOGIN_HEADER);
-    if (!loginUrl) {
-      // A bare 401 means the OSAC session itself is gone, not just the
-      // grid token — the app's regular OSAC login is needed.
-      return { id, status: 'session-expired' };
-    }
-    return { id, status: 'sign-in-required', loginUrl };
+  const authStatus = responseStatus(response);
+  if (authStatus === 'sign-in-required') {
+    return {
+      id,
+      status: 'sign-in-required',
+      loginUrl: response.headers.get(GRID_LOGIN_HEADER) ?? undefined,
+    };
   }
-  if (response.status === 403) {
-    return { id, status: 'no-access' };
+  if (authStatus) {
+    return { id, status: authStatus };
   }
   const body = (await response.json()) as { username?: string };
   return { id, status: 'connected', username: body.username };
