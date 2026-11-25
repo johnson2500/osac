@@ -110,6 +110,12 @@ Routes exposed per grid:
 - `/api/grids/<id>/*` — forwarded to the grid hub's console BFF with the
   hub token as `Authorization: Bearer`. The path after the grid prefix is
   forwarded verbatim.
+- `GET /api/grids` — the grid IDs the proxy is configured for (IDs only; hub
+  URLs and credentials stay server-side). The SPA's AI Grids page lists them
+  and probes each grid's access through `/api/grids/<id>/api/v1/user`:
+  connected, sign-in required (a "Sign in" action goes to the silent login
+  and returns to the page), no access (reported, not hidden), or
+  unreachable.
 
 Contract for API callers: when no token is cached (or the hub rejected one),
 fetch/XHR requests receive `401` with an `X-Grid-Login-URL` header pointing

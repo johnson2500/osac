@@ -173,6 +173,7 @@ func main() {
 				ProxyTransport: newHTTPClient(gridTLSConfig).Transport,
 			}
 			router.Route("/api/grids", func(r chi.Router) {
+				r.Get("/", gridHandler.List)
 				r.Get("/{gridID}/login", gridHandler.Login)
 				r.Get("/{gridID}/callback", gridHandler.Callback)
 				r.Handle("/{gridID}/*", http.HandlerFunc(gridHandler.Proxy))

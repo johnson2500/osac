@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -181,6 +182,35 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 	h.cache().Set(flow.Username, gridID, tr.AccessToken, ttl)
 
 	http.Redirect(w, r, flow.Redirect, http.StatusFound)
+}
+
+// gridSummary is the one grid fact the browser may see: its ID. Hub URLs,
+// client credentials and IdP names stay server-side.
+type gridSummary struct {
+	ID string `json:"id"`
+}
+
+// List handles GET /api/grids — the grids the UI can offer, sorted by ID so
+// the list is stable across pod restarts. Requires an OSAC session like the
+// other grid routes.
+func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
+	if h.sessionUsername(r) == "" {
+		http.Error(w, "not authenticated", http.StatusUnauthorized)
+		return
+	}
+	ids := make([]string, 0, len(h.Grids))
+	for id := range h.Grids {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	summaries := make([]gridSummary, 0, len(ids))
+	for _, id := range ids {
+		summaries = append(summaries, gridSummary{ID: id})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string][]gridSummary{"grids": summaries}); err != nil {
+		log.WithError(err).Error("failed to encode grid list")
+	}
 }
 
 // Proxy handles /api/grids/{gridID}/* — forwards the request to the grid

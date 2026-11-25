@@ -49,6 +49,12 @@ const getIdpManagerNav = (t: TFunction): NavRow[] => [...getIdpLinks(t), getSecr
 const getAdminNav = (t: TFunction): NavRow[] => [
   getCatalogNav(t),
   {
+    kind: 'link',
+    id: 'grids',
+    label: t('AI Grids'),
+    path: '/grids',
+  },
+  {
     kind: 'section',
     id: 'nav-administration',
     label: t('Administration'),

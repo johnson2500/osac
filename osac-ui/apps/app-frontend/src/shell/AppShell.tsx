@@ -38,6 +38,7 @@ import { defaultRouteForRole } from './shellRoutes';
 import { ShellSidebar } from './ShellSidebar';
 import { StorageRoutes } from './StorageRoutes';
 import { TenantRoutes } from './TenantRoutes';
+import GridsPage from '../grids/GridsPage';
 
 const MAIN_CONTENT_ID = 'osac-main-content';
 
@@ -132,6 +133,16 @@ export const AppShell = ({ logout }: { logout: () => Promise<void> }) => {
             </ShellRoute>
           }
         />
+        {role === 'admin' && (
+          <Route
+            path="/grids"
+            element={
+              <ShellRoute>
+                <GridsPage />
+              </ShellRoute>
+            }
+          />
+        )}
         <Route
           path="/admin/tenants/*"
           element={

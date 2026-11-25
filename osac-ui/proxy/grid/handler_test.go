@@ -80,6 +80,7 @@ func newTestEnv(t *testing.T) *testEnv {
 
 	router := chi.NewRouter()
 	router.Route("/api/grids", func(r chi.Router) {
+		r.Get("/", handler.List)
 		r.Get("/{gridID}/login", handler.Login)
 		r.Get("/{gridID}/callback", handler.Callback)
 		r.Handle("/{gridID}/*", http.HandlerFunc(handler.Proxy))
@@ -98,6 +99,44 @@ func (e *testEnv) do(t *testing.T, method, target, cookie string) *httptest.Resp
 	rec := httptest.NewRecorder()
 	e.router.ServeHTTP(rec, req)
 	return rec
+}
+
+func TestList_RequiresOSACSession(t *testing.T) {
+	env := newTestEnv(t)
+	rec := env.do(t, http.MethodGet, "/api/grids", "")
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 without session, got %d", rec.Code)
+	}
+}
+
+func TestList_ReturnsSortedGridIDsOnly(t *testing.T) {
+	env := newTestEnv(t)
+	env.handler.Grids["zeta"] = Grid{ID: "zeta"}
+	env.handler.Grids["alpha"] = Grid{ID: "alpha"}
+
+	rec := env.do(t, http.MethodGet, "/api/grids", sessionCookie("provider-admin"))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	var got struct {
+		Grids []gridSummary `json:"grids"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode list: %v", err)
+	}
+	ids := make([]string, 0, len(got.Grids))
+	for _, g := range got.Grids {
+		ids = append(ids, g.ID)
+	}
+	want := []string{"alpha", "grid1", "zeta"}
+	if strings.Join(ids, ",") != strings.Join(want, ",") {
+		t.Errorf("grid IDs = %v, want %v (sorted)", ids, want)
+	}
+	// Only IDs may cross to the browser: no hub URL, client ID or secret.
+	if raw := rec.Body.String(); strings.Contains(raw, "hubURL") ||
+		strings.Contains(raw, "clientID") || strings.Contains(raw, "clientSecret") {
+		t.Errorf("grid list leaked non-ID fields: %s", raw)
+	}
 }
 
 func TestLogin_RequiresOSACSession(t *testing.T) {
